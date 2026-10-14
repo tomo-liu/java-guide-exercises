@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: cafe
+  jpa:
+    # テーブルを作ってから data.sql で最初のメニューを入れる
+    defer-datasource-initialization: true
+    # 実行されたSQLをログに出す(学習用)
+    show-sql: true
+  sql:
+    init:
+      encoding: UTF-8
+
+# お店の情報(ShopInfo が読み込む)
+cafe:
+  name: ひだまりカフェ
+  hours: "8:00-20:00"

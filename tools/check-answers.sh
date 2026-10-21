@@ -11,7 +11,7 @@ cp -r "$ROOT/basics" "$TMP/basics"
 cp -r "$ROOT/answers/basics/src/." "$TMP/basics/src/"
 (cd "$TMP/basics" && ./mvnw -q test) && echo "basics: OK"
 
-for step in w1-controller w2-jpa w3-rest w4-form e1-book-arraylist e2-book-db e3-signup-form; do
+for step in s1-hello s2-layers s3-crud s4-db s5-errors s6-view e1-book-arraylist e2-book-db e3-signup-form; do
   cp -r "$ROOT/answers/web/$step" "$TMP/$step"
   (cd "$TMP/$step" && ./mvnw -q test) && echo "$step: OK"
 done

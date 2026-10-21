@@ -1,11 +1,14 @@
-# 課題リポジトリ web/ を、研修(Day4〜8)に合わせた Spring Boot の課題に作り直す。
+# 課題リポジトリ web/ の Spring Boot の課題(第4部 基礎・第5部 応用)を作る。
 #   python tools/gen_web.py <リポジトリのルート> <initializr で作ったプロジェクト(pom・mvnwの元)>
 #
-#   w1-controller … Day4:Controller・@GetMapping・DI(Service と ServiceImpl)・Model
-#   w2-jpa        … Day5〜6:Entity・DAO(JpaRepository)・Service で SELECT / INSERT
-#   w3-rest       … Day7:REST API の CRUD(GET/POST/PUT/DELETE、200/201/204/400/404)
-#   w4-form       … Day8:フォーム・Model・入力チェック
-#   e1〜e3        … 第8部「課題文から実装する」の演習(README の課題文だけを渡し、ファイルは自分で作る)
+# 1つの User アプリを、ステップごとに育てる(研修 Day4〜8 に対応)。
+#   s1-hello  … Controller で文字を返す(Day4)
+#   s2-layers … Model・Service・ServiceImpl(ArrayList)・Controller の層で、全件取得と1件取得
+#   s3-crud   … 登録・更新・削除を足して CRUD の5つの操作(GET 全件・GET 1件・POST・PUT・DELETE)
+#   s4-db     … ServiceImpl を DB 版(Entity・DAO)に差し替える。Controller は変えない(Day5〜7)
+#   s5-errors … 入力チェック(400)・エラーの JSON・メソッド名で検索
+#   s6-view   … Thymeleaf の一覧画面と登録フォーム(Day8)
+#   e1〜e3    … 第5部「課題文から実装する」の演習(README の課題文だけを渡し、ファイルは自分で作る)
 #
 # 各プロジェクトの「解答」は ANSWER、「開始コード」は ANSWER を START で上書きしたもの
 # (e1〜e3 は START_ONLY のファイルだけ)。テストは開始・解答の両方に入れる。
@@ -76,533 +79,19 @@ T = "src/test/java/com/example/demo/"
 R = "src/main/resources/"
 
 # =====================================================================
-# w1-controller(Day4)
+# User アプリを s1〜s6 で育てる(第4部 基礎 → 第5部 応用)
+#   各ステップの開始コードは「前のステップの解答」に、そのステップの TODO 入りのファイルを重ねたもの
 # =====================================================================
-w1 = {}
-w1[J + "DemoApplication.java"] = app_class("com.example.demo", "DemoApplication")
-w1[R + "application.properties"] = "spring.application.name=demo\n"
-w1[J + "service/GreetingService.java"] = r'''package com.example.demo.service;
+APP = {J + "DemoApplication.java": app_class("com.example.demo", "DemoApplication")}
+PLAIN_PROPS = {R + "application.properties": "spring.application.name=demo\n"}
+DB_PROPS = {R + "application.properties": H2_PROPS.replace("jdbc:h2:mem:school", "jdbc:h2:mem:users")}
 
-// あいさつの文を作る Service の「約束」(インターフェース)
-public interface GreetingService {
-    String greet(String name);
-}
+USER_DATA_SQL = '''INSERT INTO USERS (NAME, EMAIL, AGE) VALUES ('佐藤 花子', 'hanako@example.com', 20);
+INSERT INTO USERS (NAME, EMAIL, AGE) VALUES ('鈴木 一郎', 'ichiro@example.com', 22);
+INSERT INTO USERS (NAME, EMAIL, AGE) VALUES ('高橋 美咲', 'misaki@example.com', 19);
 '''
-w1[J + "service/GreetingServiceImpl.java"] = r'''package com.example.demo.service;
 
-import org.springframework.stereotype.Service;
-
-// GreetingService の実装。@Service を付けると、Spring が部品(Bean)として登録する
-@Service
-public class GreetingServiceImpl implements GreetingService {
-    @Override
-    public String greet(String name) {
-        return "こんにちは、" + name + "さん";
-    }
-}
-'''
-w1[J + "controller/HelloController.java"] = r'''package com.example.demo.controller;
-
-import com.example.demo.service.GreetingService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
-
-// 文字(や JSON)をそのまま返す Controller
-@RestController
-public class HelloController {
-    private final GreetingService greetingService;
-
-    // コンストラクタインジェクション:GreetingService の実装は Spring が渡してくれる
-    public HelloController(GreetingService greetingService) {
-        this.greetingService = greetingService;
-    }
-
-    @GetMapping("/hello")
-    public String hello() {
-        return "Hello, Spring Boot!";
-    }
-
-    @GetMapping("/hello/{name}")
-    public String helloName(@PathVariable String name) {
-        return greetingService.greet(name);
-    }
-}
-'''
-w1[J + "controller/PageController.java"] = r'''package com.example.demo.controller;
-
-import com.example.demo.service.GreetingService;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-
-// HTML の画面を返す Controller
-@Controller
-public class PageController {
-    private final GreetingService greetingService;
-
-    public PageController(GreetingService greetingService) {
-        this.greetingService = greetingService;
-    }
-
-    @GetMapping("/welcome")
-    public String welcome(Model model) {
-        model.addAttribute("message", greetingService.greet("ゲスト"));
-        return "welcome";
-    }
-}
-'''
-w1[R + "templates/welcome.html"] = r'''<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>ようこそ</title>
-</head>
-<body>
-<h1>ようこそ</h1>
-<p th:text="${message}">ここにメッセージが入る</p>
-</body>
-</html>
-'''
-w1_start = {
-    J + "service/GreetingServiceImpl.java": r'''package com.example.demo.service;
-
-// TODO 1: Spring に部品(Bean)として登録するアノテーションを付ける
-public class GreetingServiceImpl implements GreetingService {
-    // TODO 2: 「こんにちは、田中さん」の形の文を返す
-    @Override
-    public String greet(String name) {
-        return "";
-    }
-}
-''',
-    J + "controller/HelloController.java": r'''package com.example.demo.controller;
-
-import com.example.demo.service.GreetingService;
-
-// TODO 3: 文字をそのまま返す Controller にするアノテーションを付ける
-public class HelloController {
-    // TODO 4: GreetingService をフィールドで持ち、コンストラクタで受け取る(自分で new しない)
-
-    // TODO 5: GET /hello で「Hello, Spring Boot!」を返す
-    public String hello() {
-        return "";
-    }
-
-    // TODO 6: GET /hello/{name} で、URL の {name} の部分を受け取り、greetingService.greet(name) の結果を返す
-    public String helloName(String name) {
-        return "";
-    }
-}
-''',
-    J + "controller/PageController.java": r'''package com.example.demo.controller;
-
-import com.example.demo.service.GreetingService;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-
-@Controller
-public class PageController {
-    private final GreetingService greetingService;
-
-    public PageController(GreetingService greetingService) {
-        this.greetingService = greetingService;
-    }
-
-    // TODO 7: GET /welcome で、Model に "message"(greetingService.greet("ゲスト") の結果)を入れ、welcome.html を表示する
-    public String welcome(Model model) {
-        return "welcome";
-    }
-}
-''',
-}
-w1_tests = {
-    T + "W1ControllerTest.java": r'''package com.example.demo;
-
-''' + MOCKMVC_IMPORTS + r'''
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import com.example.demo.service.GreetingService;
-
-// Day4:Controller と DI を確かめる
-@SpringBootTest
-@AutoConfigureMockMvc
-class W1ControllerTest {
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    GreetingService greetingService;
-
-    @Test
-    @DisplayName("GreetingService:Spring が GreetingServiceImpl を渡してくれる")
-    void greetingService() {
-        assertEquals("GreetingServiceImpl", greetingService.getClass().getSimpleName());
-        assertEquals("こんにちは、田中さん", greetingService.greet("田中"));
-    }
-
-    @Test
-    @DisplayName("GET /hello:文字をそのまま返す")
-    void hello() throws Exception {
-        mockMvc.perform(get("/hello"))
-            .andExpect(status().isOk())
-            .andExpect(content().string("Hello, Spring Boot!"));
-    }
-
-    @Test
-    @DisplayName("GET /hello/{name}:URL の一部を受け取って、あいさつを返す")
-    void helloName() throws Exception {
-        mockMvc.perform(get("/hello/{name}", "田中"))
-            .andExpect(status().isOk())
-            .andExpect(content().string("こんにちは、田中さん"));
-    }
-
-    @Test
-    @DisplayName("GET /welcome:Model に入れたメッセージが HTML に表示される")
-    void welcome() throws Exception {
-        mockMvc.perform(get("/welcome"))
-            .andExpect(status().isOk())
-            .andExpect(view().name("welcome"))
-            .andExpect(content().string(containsString("こんにちは、ゲストさん")));
-    }
-}
-'''
-}
-P["w1-controller"] = dict(answer=w1, start=w1_start, tests=w1_tests)
-
-# =====================================================================
-# w2-jpa(Day5〜6)
-# =====================================================================
-w2 = {}
-w2[J + "DemoApplication.java"] = app_class("com.example.demo", "DemoApplication")
-w2[R + "application.properties"] = H2_PROPS
-w2[R + "data.sql"] = r'''INSERT INTO STUDENT (NAME, AGE) VALUES ('佐藤 花子', 20);
-INSERT INTO STUDENT (NAME, AGE) VALUES ('鈴木 一郎', 22);
-INSERT INTO STUDENT (NAME, AGE) VALUES ('高橋 美咲', 19);
-'''
-w2[J + "entity/Student.java"] = r'''package com.example.demo.entity;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
-// STUDENT テーブルの1行を表すクラス(Entity)
-@Entity
-@Table(name = "STUDENT")
-public class Student {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
-    private Integer id;
-
-    @Column(name = "NAME")
-    private String name;
-
-    @Column(name = "AGE")
-    private Integer age;
-
-    // JPA が DB から読み込むときに使う、引数なしのコンストラクタ
-    public Student() {
-    }
-
-    public Student(String name, Integer age) {
-        this.name = name;
-        this.age = age;
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(Integer age) {
-        this.age = age;
-    }
-}
-'''
-w2[J + "dao/StudentDao.java"] = r'''package com.example.demo.dao;
-
-import com.example.demo.entity.Student;
-import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-// DB を直接操作する DAO。JpaRepository を継承するだけで findById・findAll・save・deleteById が使える
-public interface StudentDao extends JpaRepository<Student, Integer> {
-    // メソッド名から SQL が作られる(WHERE AGE >= ?)
-    List<Student> findByAgeGreaterThanEqual(Integer age);
-}
-'''
-w2[J + "service/StudentService.java"] = r'''package com.example.demo.service;
-
-import com.example.demo.entity.Student;
-import java.util.List;
-
-public interface StudentService {
-    // 1件取得(見つからなければ null)
-    Student selectOne(int id);
-
-    // 全件取得
-    List<Student> selectAll();
-
-    // 新規登録(登録後の Student を返す。id が振られている)
-    Student insert(Student student);
-
-    // age 歳以上の学生
-    List<Student> selectByMinAge(int age);
-}
-'''
-w2[J + "service/StudentServiceImpl.java"] = r'''package com.example.demo.service;
-
-import com.example.demo.dao.StudentDao;
-import com.example.demo.entity.Student;
-import java.util.List;
-import org.springframework.stereotype.Service;
-
-@Service
-public class StudentServiceImpl implements StudentService {
-    private final StudentDao studentDao;
-
-    public StudentServiceImpl(StudentDao studentDao) {
-        this.studentDao = studentDao;
-    }
-
-    @Override
-    public Student selectOne(int id) {
-        // findById は Optional を返す。見つからなければ null にする
-        return studentDao.findById(id).orElse(null);
-    }
-
-    @Override
-    public List<Student> selectAll() {
-        return studentDao.findAll();
-    }
-
-    @Override
-    public Student insert(Student student) {
-        return studentDao.save(student);
-    }
-
-    @Override
-    public List<Student> selectByMinAge(int age) {
-        return studentDao.findByAgeGreaterThanEqual(age);
-    }
-}
-'''
-w2_start = {
-    J + "entity/Student.java": r'''package com.example.demo.entity;
-
-// TODO 1: STUDENT テーブルの1行を表す Entity にする(@Entity・@Table)
-public class Student {
-    // TODO 2: 主キーにする(@Id・@GeneratedValue(strategy = GenerationType.IDENTITY))。列名は ID
-    private Integer id;
-
-    // TODO 3: 列名を指定する(@Column)。NAME 列・AGE 列
-    private String name;
-
-    private Integer age;
-
-    public Student() {
-    }
-
-    public Student(String name, Integer age) {
-        this.name = name;
-        this.age = age;
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(Integer age) {
-        this.age = age;
-    }
-}
-''',
-    J + "dao/StudentDao.java": r'''package com.example.demo.dao;
-
-// TODO 4: JpaRepository<Student, Integer> を継承する
-// TODO 5: age 歳以上の学生を探すメソッド findByAgeGreaterThanEqual(Integer age) を宣言する
-public interface StudentDao {
-}
-''',
-    J + "service/StudentServiceImpl.java": r'''package com.example.demo.service;
-
-import com.example.demo.entity.Student;
-import java.util.List;
-import org.springframework.stereotype.Service;
-
-@Service
-public class StudentServiceImpl implements StudentService {
-    // TODO 6: StudentDao をフィールドで持ち、コンストラクタで受け取る
-
-    // TODO 7: findById で探し、見つからなければ null を返す(Optional の orElse を使う)
-    @Override
-    public Student selectOne(int id) {
-        return null;
-    }
-
-    // TODO 8: findAll で全件を返す
-    @Override
-    public List<Student> selectAll() {
-        return List.of();
-    }
-
-    // TODO 9: save で登録し、登録後の Student を返す
-    @Override
-    public Student insert(Student student) {
-        return null;
-    }
-
-    // TODO 10: findByAgeGreaterThanEqual を使う
-    @Override
-    public List<Student> selectByMinAge(int age) {
-        return List.of();
-    }
-}
-''',
-}
-w2_tests = {
-    T + "W2StudentServiceTest.java": r'''package com.example.demo;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-
-import com.example.demo.entity.Student;
-import com.example.demo.service.StudentService;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
-
-// Day5〜6:Entity・DAO・Service で SELECT と INSERT を確かめる
-// (@Transactional を付けたテストは、終わると DB の変更が取り消されるので、テストどうしが影響し合わない)
-@SpringBootTest
-@Transactional
-class W2StudentServiceTest {
-    @Autowired
-    StudentService studentService;
-
-    @Test
-    @DisplayName("selectOne:id で1件取得できる")
-    void selectOne() {
-        Student student = studentService.selectOne(1);
-        assertNotNull(student, "id=1 の学生がいない(Entity と data.sql を確かめよう)");
-        assertEquals("佐藤 花子", student.getName());
-        assertEquals(20, student.getAge());
-    }
-
-    @Test
-    @DisplayName("selectOne:ない id なら null")
-    void selectOneNotFound() {
-        assertNull(studentService.selectOne(99));
-    }
-
-    @Test
-    @DisplayName("selectAll:3件")
-    void selectAll() {
-        assertEquals(3, studentService.selectAll().size());
-    }
-
-    @Test
-    @DisplayName("insert → 再 SELECT:登録したデータが DB に入っている")
-    void insertThenSelect() {
-        Student saved = studentService.insert(new Student("田中 健", 21));
-        assertNotNull(saved.getId(), "保存すると id が振られる");
-        assertEquals("田中 健", studentService.selectOne(saved.getId()).getName());
-        assertEquals(4, studentService.selectAll().size());
-    }
-
-    @Test
-    @DisplayName("selectByMinAge:20歳以上は2人")
-    void selectByMinAge() {
-        assertEquals(2, studentService.selectByMinAge(20).size());
-    }
-}
-'''
-}
-P["w2-jpa"] = dict(answer=w2, start=w2_start, tests=w2_tests)
-
-# =====================================================================
-# w3-rest(Day7)
-# =====================================================================
-w3 = {}
-w3[J + "DemoApplication.java"] = app_class("com.example.demo", "DemoApplication")
-w3[R + "application.properties"] = H2_PROPS.replace("jdbc:h2:mem:school", "jdbc:h2:mem:users")
-w3[R + "data.sql"] = r'''INSERT INTO USERS (NAME, EMAIL) VALUES ('佐藤 花子', 'hanako@example.com');
-INSERT INTO USERS (NAME, EMAIL) VALUES ('鈴木 一郎', 'ichiro@example.com');
-INSERT INTO USERS (NAME, EMAIL) VALUES ('高橋 美咲', 'misaki@example.com');
-'''
-w3[J + "entity/User.java"] = r'''package com.example.demo.entity;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotBlank;
-
-// USERS テーブルの1行(USER は多くの DB で予約語なので、テーブル名は USERS にしている)
-@Entity
-@Table(name = "USERS")
-public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
-    private Integer id;
-
-    @NotBlank(message = "名前は必須です")
-    @Column(name = "NAME")
-    private String name;
-
-    @Column(name = "EMAIL")
-    private String email;
-
-    public User() {
-    }
-
-    public User(String name, String email) {
-        this.name = name;
-        this.email = email;
-    }
-
-    public Integer getId() {
+USER_ACCESSORS = '''    public Integer getId() {
         return id;
     }
 
@@ -625,47 +114,570 @@ public class User {
     public void setEmail(String email) {
         this.email = email;
     }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
 }
 '''
-w3[J + "dao/UserDao.java"] = r'''package com.example.demo.dao;
 
-import com.example.demo.entity.User;
-import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
+USER_CONSTRUCTORS = '''    // 引数なしのコンストラクタ(JSON や DB から User を作るときに使われる)
+    public User() {
+    }
 
-public interface UserDao extends JpaRepository<User, Integer> {
-    // 名前の一部で検索する(WHERE NAME LIKE '%…%')
-    List<User> findByNameContaining(String keyword);
-}
+    public User(String name, String email, Integer age) {
+        this.name = name;
+        this.email = email;
+        this.age = age;
+    }
+
 '''
-w3[J + "service/UserService.java"] = r'''package com.example.demo.service;
 
-import com.example.demo.entity.User;
+
+def test_class(name, comment, annotations, body, extra_imports=""):
+    return f'''package com.example.demo;
+
+{MOCKMVC_IMPORTS}{extra_imports}
+// {comment}
+@SpringBootTest
+@AutoConfigureMockMvc
+{annotations}class {name} {{
+    @Autowired
+    MockMvc mockMvc;
+{body}}}
+'''
+
+
+# ------------------------------- s1-hello(第4部「最初の一歩」・研修 Day4) -------------------------------
+s1 = {
+    **APP,
+    **PLAIN_PROPS,
+    J + "controller/HelloController.java": '''package com.example.demo.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+// 文字をそのまま返す Controller(リクエストの窓口)
+@RestController
+public class HelloController {
+    // GET /hello → 「Hello, Spring Boot!」
+    @GetMapping("/hello")
+    public String hello() {
+        return "Hello, Spring Boot!";
+    }
+
+    // GET /hello/田中 → 「こんにちは、田中さん」
+    @GetMapping("/hello/{name}")
+    public String helloName(@PathVariable String name) {
+        return "こんにちは、" + name + "さん";
+    }
+}
+''',
+}
+s1_start = {
+    J + "controller/HelloController.java": '''package com.example.demo.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+// TODO 1: このクラスを、文字をそのまま返す Controller にする(@RestController)
+public class HelloController {
+    // TODO 2: GET /hello で「Hello, Spring Boot!」を返す(@GetMapping)
+    public String hello() {
+        return "";
+    }
+
+    // TODO 3: GET /hello/{name} で、URL の {name} の部分を受け取り(@PathVariable)、「こんにちは、〇〇さん」を返す
+    public String helloName(String name) {
+        return "";
+    }
+}
+''',
+}
+s1_tests = {
+    T + "S1HelloTest.java": test_class(
+        "S1HelloTest",
+        "s1:Controller で文字を返す",
+        "",
+        '''
+    @Test
+    @DisplayName("GET /hello:文字をそのまま返す")
+    void hello() throws Exception {
+        mockMvc.perform(get("/hello"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("Hello, Spring Boot!"));
+    }
+
+    @Test
+    @DisplayName("GET /hello/{name}:URL の一部を受け取って、あいさつを返す")
+    void helloName() throws Exception {
+        mockMvc.perform(get("/hello/{name}", "田中"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("こんにちは、田中さん"));
+    }
+''',
+    )
+}
+P["s1-hello"] = dict(answer=s1, start=s1_start, tests=s1_tests)
+
+# ------------------------------- s2-layers(第4部「層をつくる」:全件・1件取得) -------------------------------
+S2_USER = '''package com.example.demo.model;
+
+// ユーザー1人分のデータ(Model)。id・名前・メールアドレス・年齢を持つ
+public class User {
+    private Integer id;
+    private String name;
+    private String email;
+    private Integer age;
+
+''' + USER_CONSTRUCTORS + USER_ACCESSORS
+
+S2_SERVICE = '''package com.example.demo.service;
+
+import com.example.demo.model.User;
 import java.util.List;
 
+// ユーザーを扱う処理の「約束」(インターフェース)。Controller はこの約束だけを知っている
 public interface UserService {
-    User selectOne(int id);
-
+    // 全件取得
     List<User> selectAll();
 
-    List<User> search(String keyword);
-
-    User insert(User user);
-
-    // 更新。対象がなければ null
-    User update(int id, User user);
-
-    // 削除。削除できたら true、対象がなければ false
-    boolean delete(int id);
+    // 1件取得(見つからなければ null)
+    User selectOne(int id);
 }
 '''
-w3[J + "service/UserServiceImpl.java"] = r'''package com.example.demo.service;
 
-import com.example.demo.dao.UserDao;
-import com.example.demo.entity.User;
+ARRAYLIST_HEAD = '''package com.example.demo.service;
+
+import com.example.demo.model.User;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
+// UserService の中身。データはアプリの中の ArrayList に入れておく(アプリを止めると最初の3人に戻る)
+{ann}public class UserServiceImpl implements UserService {{
+    private final List<User> users = new ArrayList<>();
+    private int nextId = 1;
+
+    // 最初のデータを3人分入れておく
+    public UserServiceImpl() {{
+        add(new User("佐藤 花子", "hanako@example.com", 20));
+        add(new User("鈴木 一郎", "ichiro@example.com", 22));
+        add(new User("高橋 美咲", "misaki@example.com", 19));
+    }}
+
+    // id を振ってリストに追加する
+    private User add(User user) {{
+        user.setId(nextId);
+        nextId++;
+        users.add(user);
+        return user;
+    }}
+'''
+
+S2_IMPL_READ = '''
+    @Override
+    public List<User> selectAll() {
+        return users;
+    }
+
+    @Override
+    public User selectOne(int id) {
+        for (User user : users) {
+            if (user.getId() == id) {
+                return user;
+            }
+        }
+        return null;
+    }
+'''
+
+CONTROLLER_IMPORTS = '''package com.example.demo.controller;
+
+import com.example.demo.model.User;
+import com.example.demo.service.UserService;
+{valid}import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+'''
+
+CONTROLLER_HEAD = '''
+// /api/users へのリクエストを受ける Controller。処理は UserService に頼む
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+    private final UserService userService;
+
+    // コンストラクタインジェクション:UserService の中身(UserServiceImpl)は Spring が渡してくれる
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+'''
+
+CONTROLLER_READ = '''
+    // 全件取得:GET /api/users → 200
+    @GetMapping
+    public List<User> getAll() {
+        return userService.selectAll();
+    }
+
+    // 1件取得:GET /api/users/1 → 200(いなければ 404)
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getOne(@PathVariable int id) {
+        User user = userService.selectOne(id);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(user);
+    }
+'''
+
+
+def controller_write(valid):
+    v = "@Valid " if valid else ""
+    return f'''
+    // 登録:POST /api/users → 201
+    @PostMapping
+    public ResponseEntity<User> create({v}@RequestBody User user) {{
+        User saved = userService.insert(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    }}
+
+    // 更新:PUT /api/users/1 → 200(いなければ 404)
+    @PutMapping("/{{id}}")
+    public ResponseEntity<User> update(@PathVariable int id, {v}@RequestBody User user) {{
+        User updated = userService.update(id, user);
+        if (updated == null) {{
+            return ResponseEntity.notFound().build();
+        }}
+        return ResponseEntity.ok(updated);
+    }}
+
+    // 削除:DELETE /api/users/1 → 204(いなければ 404)
+    @DeleteMapping("/{{id}}")
+    public ResponseEntity<Void> delete(@PathVariable int id) {{
+        if (!userService.delete(id)) {{
+            return ResponseEntity.notFound().build();
+        }}
+        return ResponseEntity.noContent().build();
+    }}
+'''
+
+
+s2 = {
+    **APP,
+    **PLAIN_PROPS,
+    J + "model/User.java": S2_USER,
+    J + "service/UserService.java": S2_SERVICE,
+    J + "service/UserServiceImpl.java": ARRAYLIST_HEAD.format(ann="@Service\n") + S2_IMPL_READ + "}\n",
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="") + CONTROLLER_HEAD + CONTROLLER_READ + "}\n",
+}
+s2_start = {
+    J + "service/UserServiceImpl.java": ARRAYLIST_HEAD.format(
+        ann="// TODO 1: Spring に部品(Bean)として登録するアノテーションを付ける(@Service)\n"
+    )
+    + '''
+    // TODO 2: users をそのまま返す
+    @Override
+    public List<User> selectAll() {
+        return List.of();
+    }
+
+    // TODO 3: users の中から id が一致する User を探して返す。見つからなければ null
+    @Override
+    public User selectOne(int id) {
+        return null;
+    }
+}
+''',
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="")
+    + '''
+// TODO 4: JSON を返す Controller にし(@RestController)、URL の頭を /api/users にする(@RequestMapping)
+public class UserController {
+    // TODO 5: UserService をフィールドで持ち、コンストラクタで受け取る(自分で new しない)
+
+    // TODO 6: GET /api/users で全件を返す(@GetMapping)
+    public List<User> getAll() {
+        return List.of();
+    }
+
+    // TODO 7: GET /api/users/{id} で1件を返す(@GetMapping・@PathVariable)。いなければ 404 Not Found
+    public ResponseEntity<User> getOne(int id) {
+        return null;
+    }
+}
+''',
+}
+
+READ_TESTS = '''
+    @Test
+    @DisplayName("GET /api/users:全件(200、最初は3人)")
+    void getAll() throws Exception {
+        mockMvc.perform(get("/api/users"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(3))
+            .andExpect(jsonPath("$[0].name").value("佐藤 花子"));
+    }
+
+    @Test
+    @DisplayName("GET /api/users/{id}:1件(200)、いなければ 404")
+    void getOne() throws Exception {
+        mockMvc.perform(get("/api/users/2"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("鈴木 一郎"))
+            .andExpect(jsonPath("$.age").value(22));
+        mockMvc.perform(get("/api/users/99")).andExpect(status().isNotFound());
+    }
+'''
+
+WRITE_TESTS = '''
+    @Test
+    @DisplayName("POST /api/users:登録すると 201 と、id の振られた User。一覧が4人になる")
+    void create() throws Exception {
+        mockMvc.perform(post("/api/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\"name\\": \\"田中 健\\", \\"email\\": \\"ken@example.com\\", \\"age\\": 21}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").value(4))
+            .andExpect(jsonPath("$.name").value("田中 健"));
+        mockMvc.perform(get("/api/users")).andExpect(jsonPath("$.length()").value(4));
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id}:更新(200)、いなければ 404")
+    void update() throws Exception {
+        mockMvc.perform(put("/api/users/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\"name\\": \\"佐藤 花子\\", \\"email\\": \\"hanako.new@example.com\\", \\"age\\": 21}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.email").value("hanako.new@example.com"));
+        mockMvc.perform(get("/api/users/1")).andExpect(jsonPath("$.age").value(21));
+        mockMvc.perform(put("/api/users/99")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\"name\\": \\"だれか\\", \\"email\\": \\"x@example.com\\", \\"age\\": 30}"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/users/{id}:削除は 204、いなければ 404")
+    void deleteUser() throws Exception {
+        mockMvc.perform(delete("/api/users/3")).andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/users/3")).andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/users/99")).andExpect(status().isNotFound());
+    }
+'''
+
+DIRTIES = "@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)\n"
+DIRTIES_IMPORT = "import org.springframework.test.annotation.DirtiesContext;\n"
+TX = "@Transactional\n"
+TX_IMPORT = "import org.springframework.transaction.annotation.Transactional;\n"
+
+s2_tests = {
+    T + "S2LayersTest.java": test_class(
+        "S2LayersTest",
+        "s2:Controller → Service → ServiceImpl の層で、全件取得と1件取得",
+        "",
+        '''
+    @Autowired
+    UserService userService;
+
+    @Test
+    @DisplayName("UserService:Spring が UserServiceImpl を渡してくれる")
+    void service() {
+        assertEquals("UserServiceImpl", userService.getClass().getSimpleName());
+    }
+''' + READ_TESTS,
+        "import static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport com.example.demo.service.UserService;\n",
+    )
+}
+P["s2-layers"] = dict(answer=s2, start=s2_start, tests=s2_tests)
+
+# ------------------------------- s3-crud(第4部「CRUD 5操作」:登録・更新・削除) -------------------------------
+S3_SERVICE = '''package com.example.demo.service;
+
+import com.example.demo.model.User;
+import java.util.List;
+
+// ユーザーを扱う処理の「約束」(インターフェース)。Controller はこの約束だけを知っている
+public interface UserService {
+    // 全件取得
+    List<User> selectAll();
+
+    // 1件取得(見つからなければ null)
+    User selectOne(int id);
+
+    // 登録(id を振って、登録後の User を返す)
+    User insert(User user);
+
+    // 更新(対象がいなければ null)
+    User update(int id, User user);
+
+    // 削除(削除できたら true、対象がいなければ false)
+    boolean delete(int id);
+}
+'''
+
+S3_IMPL_WRITE = '''
+    @Override
+    public User insert(User user) {
+        return add(user); // id は add の中で振る
+    }
+
+    @Override
+    public User update(int id, User user) {
+        User target = selectOne(id);
+        if (target == null) {
+            return null;
+        }
+        target.setName(user.getName());
+        target.setEmail(user.getEmail());
+        target.setAge(user.getAge());
+        return target;
+    }
+
+    @Override
+    public boolean delete(int id) {
+        User target = selectOne(id);
+        if (target == null) {
+            return false;
+        }
+        users.remove(target);
+        return true;
+    }
+'''
+
+s3 = {
+    **s2,
+    J + "service/UserService.java": S3_SERVICE,
+    J + "service/UserServiceImpl.java": ARRAYLIST_HEAD.format(ann="@Service\n") + S2_IMPL_READ + S3_IMPL_WRITE + "}\n",
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="")
+    + CONTROLLER_HEAD
+    + CONTROLLER_READ
+    + controller_write(False)
+    + "}\n",
+}
+s3_start = {
+    J + "service/UserServiceImpl.java": ARRAYLIST_HEAD.format(ann="@Service\n")
+    + S2_IMPL_READ
+    + '''
+    // TODO 1: add を使って登録し、登録後の User を返す
+    @Override
+    public User insert(User user) {
+        return null;
+    }
+
+    // TODO 2: id の User を探し、いなければ null。いれば name・email・age を書き換えて返す
+    @Override
+    public User update(int id, User user) {
+        return null;
+    }
+
+    // TODO 3: id の User を探し、いなければ false。いれば users から取り除いて true
+    @Override
+    public boolean delete(int id) {
+        return false;
+    }
+}
+''',
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="")
+    + CONTROLLER_HEAD
+    + CONTROLLER_READ
+    + '''
+    // TODO 4: POST /api/users で JSON を受け取って(@PostMapping・@RequestBody)登録し、201 Created と登録後の User を返す
+    public ResponseEntity<User> create(User user) {
+        return null;
+    }
+
+    // TODO 5: PUT /api/users/{id} で更新し(@PutMapping)、200 と更新後の User を返す。いなければ 404
+    public ResponseEntity<User> update(int id, User user) {
+        return null;
+    }
+
+    // TODO 6: DELETE /api/users/{id} で削除し(@DeleteMapping)、204 No Content を返す。いなければ 404
+    public ResponseEntity<Void> delete(int id) {
+        return null;
+    }
+}
+''',
+}
+s3_tests = {
+    T + "S3CrudTest.java": test_class(
+        "S3CrudTest",
+        "s3:CRUD の5つの操作(ArrayList)。テストごとにアプリを作り直し、最初の3人から始める",
+        DIRTIES,
+        READ_TESTS + WRITE_TESTS,
+        DIRTIES_IMPORT,
+    )
+}
+P["s3-crud"] = dict(answer=s3, start=s3_start, tests=s3_tests)
+
+# ------------------------------- s4-db(第4部「DBにつなぐ」:ServiceImpl を差し替える) -------------------------------
+def entity_user(name_ann):
+    return '''package com.example.demo.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+''' + ("import jakarta.validation.constraints.NotBlank;\n" if name_ann else "") + '''
+// ユーザー1人分のデータ(Model)。@Entity を付けたので、USERS テーブルの1行と対応する
+// (USER は多くの DB で予約語なので、テーブル名は USERS にしている)
+@Entity
+@Table(name = "USERS")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID")
+    private Integer id;
+
+''' + name_ann + '''    @Column(name = "NAME")
+    private String name;
+
+    @Column(name = "EMAIL")
+    private String email;
+
+    @Column(name = "AGE")
+    private Integer age;
+
+''' + USER_CONSTRUCTORS + USER_ACCESSORS
+
+
+S4_DAO = '''package com.example.demo.dao;
+
+import com.example.demo.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+// DB を操作する DAO。JpaRepository を継承するだけで findAll・findById・save・deleteById などが使える
+public interface UserDao extends JpaRepository<User, Integer> {
+}
+'''
+
+DB_IMPL = '''package com.example.demo.service;
+
+import com.example.demo.dao.UserDao;
+import com.example.demo.model.User;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+// UserService の中身(DB 版)。ArrayList の代わりに UserDao を使う。Controller は変えなくてよい
 @Service
 public class UserServiceImpl implements UserService {
     private final UserDao userDao;
@@ -675,18 +687,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User selectOne(int id) {
-        return userDao.findById(id).orElse(null);
-    }
-
-    @Override
     public List<User> selectAll() {
         return userDao.findAll();
     }
 
     @Override
-    public List<User> search(String keyword) {
-        return userDao.findByNameContaining(keyword);
+    public User selectOne(int id) {
+        // findById は Optional(中身があるかもしれない箱)を返す。見つからなければ null にする
+        return userDao.findById(id).orElse(null);
     }
 
     @Override
@@ -712,91 +720,145 @@ public class UserServiceImpl implements UserService {
         userDao.deleteById(id);
         return true;
     }
+'''
+
+s4 = {
+    **s3,
+    **DB_PROPS,
+    R + "data.sql": USER_DATA_SQL,
+    J + "model/User.java": entity_user(""),
+    J + "dao/UserDao.java": S4_DAO,
+    J + "service/UserServiceImpl.java": DB_IMPL + "}\n",
+}
+s4_start = {
+    J + "model/User.java": '''package com.example.demo.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+// TODO 1: USERS テーブルの1行と対応する Entity にする(@Entity・@Table(name = "USERS"))
+public class User {
+    // TODO 2: 主キーにする(@Id・@GeneratedValue(strategy = GenerationType.IDENTITY)・@Column(name = "ID"))
+    private Integer id;
+
+    // TODO 3: 列名を指定する(@Column)。NAME・EMAIL・AGE
+    private String name;
+
+    private String email;
+
+    private Integer age;
+
+''' + USER_CONSTRUCTORS + USER_ACCESSORS,
+    J + "dao/UserDao.java": '''package com.example.demo.dao;
+
+import com.example.demo.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+// TODO 4: JpaRepository<User, Integer> を継承する
+public interface UserDao {
+}
+''',
+    J + "service/UserServiceImpl.java": '''package com.example.demo.service;
+
+import com.example.demo.dao.UserDao;
+import com.example.demo.model.User;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+// UserService の中身を DB 版に作り直す。ArrayList は使わない。Controller は変えなくてよい
+@Service
+public class UserServiceImpl implements UserService {
+    // TODO 5: UserDao をフィールドで持ち、コンストラクタで受け取る
+
+    // TODO 6: findAll で全件を返す
+    @Override
+    public List<User> selectAll() {
+        return List.of();
+    }
+
+    // TODO 7: findById で探し、見つからなければ null(Optional の orElse を使う)
+    @Override
+    public User selectOne(int id) {
+        return null;
+    }
+
+    // TODO 8: id を null にしてから save する(id は DB に振らせる)
+    @Override
+    public User insert(User user) {
+        return null;
+    }
+
+    // TODO 9: existsById でいなければ null。いれば id を入れてから save(UPDATE になる)
+    @Override
+    public User update(int id, User user) {
+        return null;
+    }
+
+    // TODO 10: existsById でいなければ false。いれば deleteById して true
+    @Override
+    public boolean delete(int id) {
+        return false;
+    }
+}
+''',
+}
+s4_tests = {
+    T + "S4DbTest.java": test_class(
+        "S4DbTest",
+        "s4:DB 版でも CRUD の5つの操作が同じように動く(テストが終わると DB の変更は取り消される)",
+        TX,
+        READ_TESTS + WRITE_TESTS,
+        TX_IMPORT,
+    )
+}
+P["s4-db"] = dict(answer=s4, start=s4_start, tests=s4_tests)
+
+# ------------------------------- s5-errors(第5部「エラーとレスポンス」「DBをもっと」:入力チェック・検索) -------------------------------
+S5_DAO = '''package com.example.demo.dao;
+
+import com.example.demo.model.User;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+// DB を操作する DAO。JpaRepository を継承するだけで findAll・findById・save・deleteById などが使える
+public interface UserDao extends JpaRepository<User, Integer> {
+    // 名前の一部で検索する(メソッド名から WHERE NAME LIKE '%…%' の SQL が作られる)
+    List<User> findByNameContaining(String keyword);
 }
 '''
-w3[J + "controller/UserController.java"] = r'''package com.example.demo.controller;
 
-import com.example.demo.entity.User;
-import com.example.demo.service.UserService;
-import jakarta.validation.Valid;
-import java.util.List;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+S5_SERVICE = S3_SERVICE.replace('''    // 登録(id を振って''', '''    // 名前の一部で検索
+    List<User> search(String keyword);
 
-@RestController
-@RequestMapping("/api/users")
-public class UserController {
-    private final UserService userService;
+    // 登録(id を振って''')
 
-    public UserController(UserService userService) {
-        this.userService = userService;
+S5_IMPL_SEARCH = '''
+    @Override
+    public List<User> search(String keyword) {
+        return userDao.findByNameContaining(keyword);
     }
+'''
 
-    // 全件取得:GET /api/users → 200
-    @GetMapping
-    public List<User> getAll() {
-        return userService.selectAll();
-    }
-
+CONTROLLER_SEARCH = '''
     // 名前で検索:GET /api/users/search?keyword=佐藤 → 200
     @GetMapping("/search")
     public List<User> search(@RequestParam String keyword) {
         return userService.search(keyword);
     }
-
-    // 1件取得:GET /api/users/1 → 200(なければ 404)
-    @GetMapping("/{id}")
-    public ResponseEntity<User> getOne(@PathVariable int id) {
-        User user = userService.selectOne(id);
-        if (user == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(user);
-    }
-
-    // 新規登録:POST /api/users → 201
-    @PostMapping
-    public ResponseEntity<User> create(@Valid @RequestBody User user) {
-        User saved = userService.insert(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
-    }
-
-    // 更新:PUT /api/users/1 → 200(なければ 404)
-    @PutMapping("/{id}")
-    public ResponseEntity<User> update(@PathVariable int id, @Valid @RequestBody User user) {
-        User updated = userService.update(id, user);
-        if (updated == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(updated);
-    }
-
-    // 削除:DELETE /api/users/1 → 204(なければ 404)
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable int id) {
-        if (!userService.delete(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.noContent().build();
-    }
-}
 '''
-w3[J + "controller/ErrorResponse.java"] = r'''package com.example.demo.controller;
+
+ERROR_RESPONSE = '''package com.example.demo.controller;
 
 // エラーのときに返す JSON:{"message": "…"}
 public record ErrorResponse(String message) {
 }
 '''
-w3[J + "controller/ApiExceptionHandler.java"] = r'''package com.example.demo.controller;
+
+API_HANDLER = '''package com.example.demo.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -815,64 +877,65 @@ public class ApiExceptionHandler {
     }
 }
 '''
-w3_start = {
-    J + "controller/UserController.java": r'''package com.example.demo.controller;
 
-import com.example.demo.entity.User;
-import com.example.demo.service.UserService;
-import java.util.List;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-@RestController
-@RequestMapping("/api/users")
-public class UserController {
-    private final UserService userService;
-
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
-    // TODO 1: GET /api/users で全件を返す(200)
-    public List<User> getAll() {
-        return List.of();
-    }
-
-    // TODO 2: GET /api/users/search?keyword=… で、名前に keyword を含む人を返す(@RequestParam)
+s5 = {
+    **s4,
+    J + "model/User.java": entity_user('    @NotBlank(message = "名前は必須です")\n'),
+    J + "dao/UserDao.java": S5_DAO,
+    J + "service/UserService.java": S5_SERVICE,
+    J + "service/UserServiceImpl.java": DB_IMPL + S5_IMPL_SEARCH + "}\n",
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="import jakarta.validation.Valid;\n")
+    + CONTROLLER_HEAD
+    + CONTROLLER_READ
+    + CONTROLLER_SEARCH
+    + controller_write(True)
+    + "}\n",
+    J + "controller/ErrorResponse.java": ERROR_RESPONSE,
+    J + "controller/ApiExceptionHandler.java": API_HANDLER,
+}
+s5_start = {
+    J + "model/User.java": entity_user(
+        '    // TODO 1: 空なら「名前は必須です」で弾く(@NotBlank(message = "…"))\n'
+    ),
+    J + "dao/UserDao.java": S4_DAO.replace(
+        "public interface UserDao extends JpaRepository<User, Integer> {\n",
+        "// TODO 2: 名前の一部で検索するメソッド findByNameContaining(String keyword) を宣言する(List<User> を返す)\n"
+        "public interface UserDao extends JpaRepository<User, Integer> {\n",
+    ),
+    J + "service/UserServiceImpl.java": DB_IMPL
+    + '''
+    // TODO 3: UserDao の findByNameContaining を使う
+    @Override
     public List<User> search(String keyword) {
         return List.of();
     }
-
-    // TODO 3: GET /api/users/{id} で1件を返す。いなければ 404 Not Found
-    public ResponseEntity<User> getOne(int id) {
-        return null;
-    }
-
-    // TODO 4: POST /api/users で JSON を受け取って登録し、201 Created と登録後の User を返す。
-    //         名前が空なら 400(@Valid を付けると、User の @NotBlank がチェックされる)
-    public ResponseEntity<User> create(User user) {
-        return null;
-    }
-
-    // TODO 5: PUT /api/users/{id} で更新し、200 と更新後の User を返す。いなければ 404
-    public ResponseEntity<User> update(int id, User user) {
-        return null;
-    }
-
-    // TODO 6: DELETE /api/users/{id} で削除し、204 No Content を返す。いなければ 404
-    public ResponseEntity<Void> delete(int id) {
-        return null;
-    }
 }
 ''',
-    J + "controller/ApiExceptionHandler.java": r'''package com.example.demo.controller;
+    J + "controller/UserController.java": CONTROLLER_IMPORTS.format(valid="import jakarta.validation.Valid;\n")
+    + CONTROLLER_HEAD
+    + CONTROLLER_READ
+    + '''
+    // TODO 4: GET /api/users/search?keyword=… で、名前に keyword を含む人を返す(@GetMapping・@RequestParam)
+    public List<User> search(String keyword) {
+        return List.of();
+    }
+'''
+    + controller_write(False).replace(
+        "    // 登録:POST /api/users → 201\n",
+        "    // TODO 5: 登録と更新の User に @Valid を付けて、User の @NotBlank をチェックさせる\n    // 登録:POST /api/users → 201\n",
+    )
+    + "}\n",
+    J + "controller/ApiExceptionHandler.java": '''package com.example.demo.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-// TODO 7: どの Controller の例外もまとめて受け止めるクラスにする(@RestControllerAdvice)
+// TODO 6: どの Controller の例外もまとめて受け止めるクラスにする(@RestControllerAdvice)
 public class ApiExceptionHandler {
-    // TODO 8: MethodArgumentNotValidException を受け止め、400 Bad Request と ErrorResponse を返す
+    // TODO 7: MethodArgumentNotValidException を受け止め(@ExceptionHandler)、400 Bad Request(@ResponseStatus)と ErrorResponse を返す
     //         メッセージは e.getBindingResult().getFieldErrors().get(0).getDefaultMessage() で取れる
     public ErrorResponse badRequest(MethodArgumentNotValidException e) {
         return null;
@@ -880,29 +943,13 @@ public class ApiExceptionHandler {
 }
 ''',
 }
-w3_tests = {
-    T + "W3UserApiTest.java": r'''package com.example.demo;
-
-''' + MOCKMVC_IMPORTS + r'''
-import org.springframework.transaction.annotation.Transactional;
-
-// Day7:REST API の CRUD とステータスコードを確かめる
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
-class W3UserApiTest {
-    @Autowired
-    MockMvc mockMvc;
-
-    @Test
-    @DisplayName("GET /api/users:全件(200)")
-    void getAll() throws Exception {
-        mockMvc.perform(get("/api/users"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(3))
-            .andExpect(jsonPath("$[0].name").value("佐藤 花子"));
-    }
-
+s5_tests = {
+    T + "S5ErrorsTest.java": test_class(
+        "S5ErrorsTest",
+        "s5:入力チェック(400)とエラーの JSON、名前での検索",
+        TX,
+        READ_TESTS
+        + '''
     @Test
     @DisplayName("GET /api/users/search?keyword=:名前で検索(200)")
     void search() throws Exception {
@@ -913,77 +960,47 @@ class W3UserApiTest {
     }
 
     @Test
-    @DisplayName("GET /api/users/{id}:1件(200)、いなければ 404")
-    void getOne() throws Exception {
-        mockMvc.perform(get("/api/users/2")).andExpect(status().isOk()).andExpect(jsonPath("$.name").value("鈴木 一郎"));
-        mockMvc.perform(get("/api/users/99")).andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("POST /api/users:登録すると 201 と、id の振られた User")
-    void create() throws Exception {
-        mockMvc.perform(post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \"田中 健\", \"email\": \"ken@example.com\"}"))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").value(4))
-            .andExpect(jsonPath("$.name").value("田中 健"));
-    }
-
-    @Test
-    @DisplayName("POST /api/users:名前が空なら 400 とエラーメッセージ")
+    @DisplayName("POST /api/users:名前が空なら 400 とエラーメッセージ(登録されない)")
     void createInvalid() throws Exception {
         mockMvc.perform(post("/api/users")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \"\", \"email\": \"x@example.com\"}"))
+                .content("{\\"name\\": \\"\\", \\"email\\": \\"x@example.com\\", \\"age\\": 30}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("名前は必須です"));
+        mockMvc.perform(get("/api/users")).andExpect(jsonPath("$.length()").value(3));
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id}:名前が空なら 400")
+    void updateInvalid() throws Exception {
+        mockMvc.perform(put("/api/users/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\"name\\": \\" \\", \\"email\\": \\"x@example.com\\", \\"age\\": 30}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("名前は必須です"));
     }
-
-    @Test
-    @DisplayName("PUT /api/users/{id}:更新(200)、いなければ 404")
-    void update() throws Exception {
-        mockMvc.perform(put("/api/users/1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \"佐藤 花子\", \"email\": \"hanako.new@example.com\"}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(1))
-            .andExpect(jsonPath("$.email").value("hanako.new@example.com"));
-        mockMvc.perform(put("/api/users/99")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \"だれか\", \"email\": \"x@example.com\"}"))
-            .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("DELETE /api/users/{id}:削除は 204、いなければ 404")
-    void deleteUser() throws Exception {
-        mockMvc.perform(delete("/api/users/3")).andExpect(status().isNoContent());
-        mockMvc.perform(get("/api/users/3")).andExpect(status().isNotFound());
-        mockMvc.perform(delete("/api/users/99")).andExpect(status().isNotFound());
-    }
+''',
+        TX_IMPORT,
+    )
 }
-'''
-}
-P["w3-rest"] = dict(answer=w3, start=w3_start, tests=w3_tests)
+P["s5-errors"] = dict(answer=s5, start=s5_start, tests=s5_tests)
 
-# =====================================================================
-# w4-form(Day8)
-# =====================================================================
-w4 = {}
-w4[J + "DemoApplication.java"] = app_class("com.example.demo", "DemoApplication")
-w4[R + "application.properties"] = "spring.application.name=demo\n"
-w4[J + "form/MyForm.java"] = r'''package com.example.demo.form;
+# ------------------------------- s6-view(第5部「画面」・研修 Day8:一覧画面と登録フォーム) -------------------------------
+USER_FORM = '''package com.example.demo.form;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-// フォームの入力値を入れておくクラス。フィールド名はフォームの name 属性と同じにする
-public class MyForm {
+// 登録フォームの入力値を入れておくクラス。フィールド名はフォームの入力欄の name 属性と同じにする
+public class UserForm {
     @NotBlank(message = "名前を入力してください")
     private String name;
+
+    @Email(message = "メールアドレスの形式が正しくありません")
+    private String email;
 
     @NotNull(message = "年齢を入力してください")
     @Min(value = 0, message = "年齢は0以上にしてください")
@@ -998,6 +1015,14 @@ public class MyForm {
         this.name = name;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public Integer getAge() {
         return age;
     }
@@ -1007,9 +1032,12 @@ public class MyForm {
     }
 }
 '''
-w4[J + "controller/MyController.java"] = r'''package com.example.demo.controller;
 
-import com.example.demo.form.MyForm;
+PAGE_IMPORTS = '''package com.example.demo.controller;
+
+import com.example.demo.form.UserForm;
+import com.example.demo.model.User;
+import com.example.demo.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -1017,164 +1045,217 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+'''
 
+PAGE_CONTROLLER = PAGE_IMPORTS + '''
+// 画面(HTML)を返す Controller。処理は REST の UserController と同じ UserService に頼む
 @Controller
-public class MyController {
-    // 入力画面:空の MyForm を Model に入れて、form.html を表示する
-    @GetMapping("/form")
-    public String form(Model model) {
-        model.addAttribute("myForm", new MyForm());
-        return "form";
+@RequestMapping("/users")
+public class UserPageController {
+    private final UserService userService;
+
+    public UserPageController(UserService userService) {
+        this.userService = userService;
     }
 
-    // 送信後:入力に誤りがあれば form.html に戻し、なければ result.html に結果を表示する
-    @PostMapping("/form")
-    public String submit(@Valid @ModelAttribute MyForm myForm, BindingResult result, Model model) {
+    // 一覧画面:GET /users → users.html
+    @GetMapping
+    public String list(Model model) {
+        model.addAttribute("users", userService.selectAll());
+        return "users";
+    }
+
+    // 登録画面:GET /users/new → 空の UserForm を Model に入れて user-form.html
+    @GetMapping("/new")
+    public String form(Model model) {
+        model.addAttribute("userForm", new UserForm());
+        return "user-form";
+    }
+
+    // 登録:POST /users → 誤りがあれば user-form.html に戻し、なければ登録して result.html
+    @PostMapping
+    public String create(@Valid @ModelAttribute UserForm userForm, BindingResult result, Model model) {
         if (result.hasErrors()) {
-            return "form";
+            return "user-form";
         }
-        model.addAttribute("message", myForm.getName() + "さん(" + myForm.getAge() + "歳)を受け付けました");
+        User saved = userService.insert(new User(userForm.getName(), userForm.getEmail(), userForm.getAge()));
+        model.addAttribute("message", saved.getName() + "さん(" + saved.getAge() + "歳)を登録しました");
         return "result";
     }
 }
 '''
-w4[R + "templates/form.html"] = r'''<!DOCTYPE html>
+
+USERS_HTML = '''<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>入力</title>
+    <title>ユーザー一覧</title>
 </head>
 <body>
-<h1>入力</h1>
-<form th:action="@{/form}" th:object="${myForm}" method="post">
+<h1>ユーザー一覧</h1>
+<table>
+    <tr><th>ID</th><th>名前</th><th>メールアドレス</th><th>年齢</th></tr>
+    <tr th:each="user : ${users}">
+        <td th:text="${user.id}">1</td>
+        <td th:text="${user.name}">名前</td>
+        <td th:text="${user.email}">メール</td>
+        <td th:text="${user.age}">20</td>
+    </tr>
+</table>
+<p><a th:href="@{/users/new}">新しく登録する</a></p>
+</body>
+</html>
+'''
+
+USER_FORM_HTML = '''<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ユーザー登録</title>
+</head>
+<body>
+<h1>ユーザー登録</h1>
+<form th:action="@{/users}" th:object="${userForm}" method="post">
     <p>
         <label>名前 <input type="text" th:field="*{name}"></label>
         <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}">エラー</span>
     </p>
     <p>
+        <label>メールアドレス <input type="text" th:field="*{email}"></label>
+        <span th:if="${#fields.hasErrors('email')}" th:errors="*{email}">エラー</span>
+    </p>
+    <p>
         <label>年齢 <input type="number" th:field="*{age}"></label>
         <span th:if="${#fields.hasErrors('age')}" th:errors="*{age}">エラー</span>
     </p>
-    <button type="submit">送信</button>
+    <button type="submit">登録</button>
 </form>
 </body>
 </html>
 '''
-w4[R + "templates/result.html"] = r'''<!DOCTYPE html>
+
+RESULT_HTML = '''<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>結果</title>
+    <title>登録完了</title>
 </head>
 <body>
-<h1>結果</h1>
+<h1>登録完了</h1>
 <p th:text="${message}">ここに結果が入る</p>
-<p><a th:href="@{/form}">入力に戻る</a></p>
+<p><a th:href="@{/users}">一覧に戻る</a></p>
 </body>
 </html>
 '''
-w4_start = {
-    J + "form/MyForm.java": r'''package com.example.demo.form;
 
-// フォームの入力値を入れておくクラス
-public class MyForm {
-    // TODO 1: 空なら「名前を入力してください」で弾く(@NotBlank)
+s6 = {
+    **s5,
+    J + "form/UserForm.java": USER_FORM,
+    J + "controller/UserPageController.java": PAGE_CONTROLLER,
+    R + "templates/users.html": USERS_HTML,
+    R + "templates/user-form.html": USER_FORM_HTML,
+    R + "templates/result.html": RESULT_HTML,
+}
+s6_start = {
+    J + "form/UserForm.java": '''package com.example.demo.form;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+// 登録フォームの入力値を入れておくクラス。フィールド名はフォームの入力欄の name 属性と同じにする
+public class UserForm {
+    // TODO 1: 空なら「名前を入力してください」(@NotBlank)
     private String name;
 
-    // TODO 2: 空なら「年齢を入力してください」(@NotNull)、0未満なら「年齢は0以上にしてください」(@Min)、
-    //         150より大きければ「年齢は150以下にしてください」(@Max)で弾く
+    // TODO 2: メールアドレスの形でなければ「メールアドレスの形式が正しくありません」(@Email)
+    private String email;
+
+    // TODO 3: 空なら「年齢を入力してください」(@NotNull)、0未満なら「年齢は0以上にしてください」(@Min)、
+    //         150より大きければ「年齢は150以下にしてください」(@Max)
     private Integer age;
+''' + USER_FORM.split("    private Integer age;\n", 1)[1],
+    J + "controller/UserPageController.java": PAGE_IMPORTS + '''
+// 画面(HTML)を返す Controller。処理は REST の UserController と同じ UserService に頼む
+// TODO 4: 画面を返す Controller にし(@Controller)、URL の頭を /users にする(@RequestMapping)
+public class UserPageController {
+    // TODO 5: UserService をフィールドで持ち、コンストラクタで受け取る
 
-    public String getName() {
-        return name;
+    // TODO 6: GET /users で、Model に "users"(全件)を入れて users.html を表示する
+    public String list(Model model) {
+        return "users";
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(Integer age) {
-        this.age = age;
-    }
-}
-''',
-    J + "controller/MyController.java": r'''package com.example.demo.controller;
-
-import com.example.demo.form.MyForm;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-
-@Controller
-public class MyController {
-    // TODO 3: GET /form で、空の MyForm を "myForm" という名前で Model に入れ、form.html を表示する
+    // TODO 7: GET /users/new で、空の UserForm を "userForm" という名前で Model に入れて user-form.html を表示する
     public String form(Model model) {
-        return "form";
+        return "user-form";
     }
 
-    // TODO 4: POST /form で MyForm を受け取って入力チェックし(@Valid @ModelAttribute)、
-    //         誤りがあれば form.html に戻す。なければ Model に "message"(「田中さん(20歳)を受け付けました」の形)を入れ、result.html を表示する
-    public String submit(MyForm myForm, BindingResult result, Model model) {
-        return "form";
+    // TODO 8: POST /users で UserForm を受け取って入力チェックし(@Valid @ModelAttribute)、誤りがあれば user-form.html に戻す。
+    //         なければ User を作って登録し、Model に "message"(「田中 健さん(21歳)を登録しました」の形)を入れ、result.html を表示する
+    public String create(UserForm userForm, BindingResult result, Model model) {
+        return "user-form";
     }
 }
 ''',
 }
-w4_tests = {
-    T + "W4FormTest.java": r'''package com.example.demo;
-
-''' + MOCKMVC_IMPORTS + r'''
-// Day8:フォーム → Controller → Model → HTML の流れを確かめる
-@SpringBootTest
-@AutoConfigureMockMvc
-class W4FormTest {
-    @Autowired
-    MockMvc mockMvc;
-
+s6_tests = {
+    T + "S6ViewTest.java": test_class(
+        "S6ViewTest",
+        "s6:一覧画面と登録フォーム(フォーム → Controller → Form → Model → HTML)",
+        TX,
+        '''
     @Test
-    @DisplayName("GET /form:入力画面が表示される")
-    void form() throws Exception {
-        mockMvc.perform(get("/form"))
+    @DisplayName("GET /users:一覧画面に3人が表示される")
+    void list() throws Exception {
+        mockMvc.perform(get("/users"))
             .andExpect(status().isOk())
-            .andExpect(view().name("form"))
-            .andExpect(content().string(containsString("name=\"name\"")));
+            .andExpect(view().name("users"))
+            .andExpect(content().string(containsString("佐藤 花子")))
+            .andExpect(content().string(containsString("misaki@example.com")));
     }
 
     @Test
-    @DisplayName("POST /form:正しく入力すると、結果の画面に表示される")
-    void submit() throws Exception {
-        mockMvc.perform(post("/form").param("name", "田中").param("age", "20"))
+    @DisplayName("GET /users/new:3つの入力欄がある登録画面")
+    void form() throws Exception {
+        mockMvc.perform(get("/users/new"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("user-form"))
+            .andExpect(content().string(containsString("name=\\"name\\"")))
+            .andExpect(content().string(containsString("name=\\"email\\"")))
+            .andExpect(content().string(containsString("name=\\"age\\"")));
+    }
+
+    @Test
+    @DisplayName("POST /users:正しく入力すると登録され、結果の画面に表示される")
+    void create() throws Exception {
+        mockMvc.perform(post("/users").param("name", "田中 健").param("email", "ken@example.com").param("age", "21"))
             .andExpect(status().isOk())
             .andExpect(view().name("result"))
-            .andExpect(content().string(containsString("田中さん(20歳)を受け付けました")));
+            .andExpect(content().string(containsString("田中 健さん(21歳)を登録しました")));
+        mockMvc.perform(get("/users")).andExpect(content().string(containsString("ken@example.com")));
     }
 
     @Test
-    @DisplayName("POST /form:名前が空なら入力画面に戻り、メッセージが出る")
-    void nameBlank() throws Exception {
-        mockMvc.perform(post("/form").param("name", "").param("age", "20"))
-            .andExpect(view().name("form"))
-            .andExpect(content().string(containsString("名前を入力してください")));
-    }
-
-    @Test
-    @DisplayName("POST /form:年齢が範囲外なら入力画面に戻り、メッセージが出る")
-    void ageOutOfRange() throws Exception {
-        mockMvc.perform(post("/form").param("name", "田中").param("age", "200"))
-            .andExpect(view().name("form"))
+    @DisplayName("POST /users:誤りがあれば登録画面に戻り、メッセージが出る")
+    void createInvalid() throws Exception {
+        mockMvc.perform(post("/users").param("name", "").param("email", "abc").param("age", "200"))
+            .andExpect(view().name("user-form"))
+            .andExpect(content().string(containsString("名前を入力してください")))
+            .andExpect(content().string(containsString("メールアドレスの形式が正しくありません")))
             .andExpect(content().string(containsString("年齢は150以下にしてください")));
-        mockMvc.perform(post("/form").param("name", "田中").param("age", ""))
-            .andExpect(view().name("form"))
+        mockMvc.perform(post("/users").param("name", "田中 健").param("email", "ken@example.com").param("age", ""))
+            .andExpect(view().name("user-form"))
             .andExpect(content().string(containsString("年齢を入力してください")));
     }
+''',
+        TX_IMPORT,
+    )
 }
-'''
-}
-P["w4-form"] = dict(answer=w4, start=w4_start, tests=w4_tests)
+P["s6-view"] = dict(answer=s6, start=s6_start, tests=s6_tests)
 
 # =====================================================================
 # e1〜e3:課題文から実装する演習
@@ -1911,7 +1992,7 @@ def copy_base(dest, artifact):
     write(os.path.join(dest, "pom.xml"), pom)
 
 
-for old in ["w1-spring", "w2-thymeleaf", "w3-rest", "w4-database"]:
+for old in ["w1-spring", "w2-thymeleaf", "w3-rest", "w4-database", "w1-controller", "w2-jpa", "w4-form"]:
     for d in (os.path.join(ROOT, "web", old), os.path.join(ROOT, "answers", "web", old)):
         if os.path.exists(d):
             shutil.rmtree(d)

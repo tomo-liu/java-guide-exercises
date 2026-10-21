@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ユーザー一覧</title>
+</head>
+<body>
+<h1>ユーザー一覧</h1>
+<table>
+    <tr><th>ID</th><th>名前</th><th>メールアドレス</th><th>年齢</th></tr>
+    <tr th:each="user : ${users}">
+        <td th:text="${user.id}">1</td>
+        <td th:text="${user.name}">名前</td>
+        <td th:text="${user.email}">メール</td>
+        <td th:text="${user.age}">20</td>
+    </tr>
+</table>
+<p><a th:href="@{/users/new}">新しく登録する</a></p>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # Java解体新書 課題リポジトリ
 
 学習アプリ「Java解体新書」の各カテゴリの最後にある「手元でやってみよう」の課題です。
-第1〜3部はカフェの注文システムを題材に Java の基礎を、第4〜8部は研修(Day4〜8)と同じ題材(Student・User・MyForm)で Spring Boot を学びます。
+第1〜3部はカフェの注文システムを題材に Java の基礎を、第4・5部はユーザー管理アプリ(User)を1つ育てながら Spring Boot を学びます(第4部から始めても大丈夫です)。
 
 ## 必要なもの
 
@@ -15,13 +15,13 @@ Maven はインストール不要です(各フォルダの `mvnw` が自動で�
 | フォルダ | 使う部 | 中身 |
 | --- | --- | --- |
 | `basics/` | 第1〜3部 | 1つのMavenプロジェクト。課題ごとのパッケージ(`cafe.s01_hello` 〜 `cafe.s19_testing`)と採点テスト |
-| `web/w1-controller` 〜 `web/w4-form` | 第4〜7部 | 研修 Day4〜8 に合わせた Spring Boot プロジェクト(Controller・DI / Entity・DAO・Service / REST API / フォーム)。ファイルの `TODO` を埋める |
-| `web/e1-book-arraylist` 〜 `web/e3-signup-form` | 第8部 | 課題文(各フォルダの README.md)だけを読んで、ファイルから自分で作る演習 |
+| `web/s1-hello` 〜 `web/s6-view` | 第4・5部 | 同じ User アプリを育てるステップ。各ステップは前のステップの解答が入った状態から始まる(s1 文字を返す/s2 層をつくる/s3 CRUD 5つの操作/s4 DB につなぐ/s5 入力チェックと検索/s6 画面とフォーム) |
+| `web/e1-book-arraylist` 〜 `web/e3-signup-form` | 第5部 | 課題文(各フォルダの README.md)だけを読んで、ファイルから自分で作る演習 |
 | `answers/` | 全部 | 解答例(`basics/`・`web/` と同じ構成)。テストが通ってから見比べよう |
 
 ## 進め方
 
-1. VS Code で `basics`(第4部以降は `web/w1-controller` など)のフォルダを開く
+1. VS Code で `basics`(第4部以降は `web/s1-hello` など)のフォルダを開く
 2. 課題のファイルの `TODO` を埋める
 3. 対応するテストファイルを開き、▶ でテストを実行する。全部緑になれば合格
 

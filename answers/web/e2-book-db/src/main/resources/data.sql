@@ -1,0 +1,2 @@
+INSERT INTO BOOK (TITLE, AUTHOR) VALUES ('Java入門', '山田 太郎');
+INSERT INTO BOOK (TITLE, AUTHOR) VALUES ('SQLの基本', '佐藤 花子');

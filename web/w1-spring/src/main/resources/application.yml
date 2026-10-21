@@ -1,8 +1,0 @@
-spring:
-  application:
-    name: cafe
-
-# お店の情報(ShopInfo が読み込む)
-cafe:
-  name: ひだまりカフェ
-  hours: "8:00-20:00"
